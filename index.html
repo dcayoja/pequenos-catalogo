@@ -452,7 +452,7 @@ function renderGrid() {
     return `
     <div class="producto-card">
       <div class="producto-img ${BG[p.bg]}" onclick="abrirDetalle(${p.id})" style="cursor:pointer;position:relative;">
-        ${p.fotos && p.fotos.length ? `<img src="${p.fotos[0]}" style="width:100%;height:100%;object-fit:contain;padding:4px;" onerror="this.style.display='none';this.nextSibling.style.display='flex'"><span style="display:none;width:100%;height:100%;align-items:center;justify-content:center;font-size:2.5rem;">${p.emoji}</span>` : `<span style="font-size:2.5rem;">${p.emoji}</span>`}
+        ${p.fotos && p.fotos.length ? `<img src="${p.fotos[0]}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none';this.nextSibling.style.display='flex'"><span style="display:none;width:100%;height:100%;align-items:center;justify-content:center;font-size:2.5rem;">${p.emoji}</span>` : `<span style="font-size:2.5rem;">${p.emoji}</span>`}
         ${(p.fotos && p.fotos.length) || p.video ? '<div style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,0.45);color:white;border-radius:6px;padding:2px 7px;font-size:0.7rem;font-weight:700;">👁 Ver</div>' : ''}
       </div>
       <div class="producto-info">
