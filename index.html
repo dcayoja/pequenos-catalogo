@@ -395,7 +395,7 @@ let PRODUCTOS = [];
 
 async function cargarProductos() {
   try {
-    const res = await fetch("/.netlify/functions/sheet");
+    const res = await fetch("/api/sheet");
     const csv = await res.text();
     const lines = csv.trim().split("\n");
     PRODUCTOS = lines.slice(1).map(line => {
