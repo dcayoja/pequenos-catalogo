@@ -178,7 +178,17 @@ window.PEQUESBO_CONFIG = {
       { city: 'Potosí', price: 30 }, { city: 'Tarija', price: 30 }, { city: 'Trinidad', price: 40 }, { city: 'Cobija', price: 45 }
     ],
     child_options: ['Niño', 'Niña'],
-    pay_methods: { paypal: true, mercadopago: true, yape: false, hotmart: true },
+    pay_methods: { paypal: true, mercadopago: true, yape: true, hotmart: true },
+    pay_auto_rate: true,
+    pay_rate_ars: 0,
+    pay_rate_pen: 0,
+    pay_margin: 0,
+    paypal_user: '',
+    mp_alias: '',
+    mp_holder: '',
+    yape_number: '',
+    yape_holder: '',
+    yape_qr: '',
     banners: [],
     pixel_tiktok: '',
     pixel_meta: '',
@@ -603,7 +613,7 @@ window.PEQUESBO_CONFIG = {
       m.innerHTML = `<form class="sheet"><h2>${isNew ? 'Nuevo producto' : 'Editar producto'}</h2>
         <label for="e-name">Nombre</label><input type="text" id="e-name" value="${esc(d.name)}" required>
         <div class="grid2">
-          <div><label for="e-format">Tipo</label><select id="e-format"><option value="fisico" ${d.format === 'fisico' ? 'selected' : ''}>Libro físico (Bs)</option><option value="pdf" ${d.format === 'pdf' ? 'selected' : ''}>PDF digital (USD)</option></s</select><p class="hint">Por ahora los PDFs no se muestran en la página.</p></div>
+          <div><label for="e-format">Tipo</label><select id="e-format"><option value="fisico" ${d.format === 'fisico' ? 'selected' : ''}>Libro físico (Bs)</option><option value="pdf" ${d.format === 'pdf' ? 'selected' : ''}>PDF digital (USD)</option></s</select><p class="hint">Los PDFs aparecen en “Digitales PDF”, con su propia forma de pago.</p></div>
           <div><label for="e-pages">Páginas o tamaño</label><input type="text" id="e-pages" value="${esc(d.pages)}" placeholder="Ej: 24 páginas, tamaño A5"></div>
           <div><label for="e-price">Precio</label><input type="number" id="e-price" min="0" step="0.01" value="${d.price}"></div>
           <div><label for="e-old">Precio anterior (tachado)</label><input type="number" id="e-old" min="0" step="0.01" value="${d.old_price || ''}"><p class="hint">Déjalo vacío si no hay descuento.</p></div>
@@ -620,7 +630,7 @@ window.PEQUESBO_CONFIG = {
         <input type="file" id="e-file" accept="image/*" multiple><p class="hint">Se reducen solas para que la página cargue rápido desde el celular.</p>
         <div class="grid2">
           <div><label for="e-video">Video (YouTube o archivo .mp4)</label><input type="url" id="e-video" value="${esc(d.video_url)}" placeholder="https://"></div>
-          <div><label for="e-pay">Enlace de pago del PDF (Hotmart, PayPal…)</label><input type="url" id="e-pay" value="${esc(d.pay_url)}" placeholder="https://"><p class="hint">Solo para PDFs. Si lo dejas vacío, el botón abre WhatsApp.</p></div>
+          <div><label for="e-pay">Enlace de Hotmart (entrega automática)</label><input type="url" id="e-pay" value="${esc(d.pay_url)}" placeholder="https://"><p class="hint">Solo para PDFs. En un PDF gratis, aquí va el enlace de descarga. El precio en USD es el de arriba: de ahí salen los de pesos y soles.</p></div>
           <div><label for="e-sort">Orden en el catálogo</label><input type="number" id="e-sort" value="${d.sort_order}"><p class="hint">Número menor = aparece antes.</p></div>
         </div>
         <label>Opciones</label><div class="checks">${[['featured', 'Destacado'], ['is_new', 'Nuevo'], ['live_deal', 'Oferta del live'], ['paused', 'Pausar producto'], ['hidden', 'Ocultar']].map(([k, l]) => ck('flag', k, d[k], l)).join('')}</div>
@@ -987,7 +997,7 @@ window.PEQUESBO_CONFIG = {
     let topicsList = (Array.isArray(s.topics) && s.topics.length ? s.topics : PB.DEFAULT_TOPICS).map((t) => Object.assign({}, t));
     const lines = (a) => (a || []).join('\n');
     const T = (id, label, val, hint, rows) => `<label for="${id}">${label}</label><textarea id="${id}" style="min-height:${rows || 90}px">${esc(val)}</textarea>${hint ? `<p class="hint">${hint}</p>` : ''}`;
-    const I = (id, label, val, hint, type) => `<label for="${id}">${label}</label><input type="${type || 'text'}" id="${id}" value="${esc(val)}">${hint ? `<p class="hint">${hint}</p>` : ''}`;
+    const I = (id, label, val, hint, type) => `<label for="${id}">${label}</label><input type="${type || 'text'}"${type === 'number' ? ' step="any" min="0"' : ''} id="${id}" value="${esc(val)}">${hint ? `<p class="hint">${hint}</p>` : ''}`;
     const pm = s.pay_methods || {};
     let banners = (s.banners || []).map((b) => Object.assign({}, b));
     $('#panel').innerHTML = `<form id="sf">
@@ -1006,7 +1016,23 @@ window.PEQUESBO_CONFIG = {
         ${T('s-mat', 'Opciones de “Material para” (una por línea)', lines(s.child_options))}
         ${T('s-ship', 'Texto de envíos', s.shipping_text)}${T('s-recs', 'Recomendaciones (usa “- ” para viñetas)', s.recs_text)}${T('s-steps', 'Pasos del proceso de envío (uno por línea)', lines(s.process_steps))}</div>
       <div class="card"><h3>Pagos de PDFs</h3><div class="checks">
-        ${[['paypal', 'PayPal'], ['mercadopago', 'MercadoPago'], ['yape', 'Yape (solo si puedes recibirlo)'], ['hotmart', 'Hotmart']].map(([k, l]) => `<label><input type="checkbox" data-pm="${k}" ${pm[k] ? 'checked' : ''}> ${l}</label>`).join('')}</div></div>
+        ${[['paypal', 'PayPal'], ['mercadopago', 'MercadoPago'], ['yape', 'Yape'], ['hotmart', 'Hotmart']].map(([k, l]) => `<label><input type="checkbox" data-pm="${k}" ${pm[k] !== false ? 'checked' : ''}> ${l}</label>`).join('')}</div>
+        <p class="hint">Un método solo aparece en la página si tiene sus datos completos. Hotmart necesita el enlace de cada PDF (en el libro).</p>
+        <div class="grid2">
+          ${I('s-pp', 'Usuario de PayPal.me', s.paypal_user, 'Solo el usuario, ej: pequesbo. El monto en USD va incluido en el enlace.')}
+          ${I('s-mpa', 'MercadoPago: alias o CVU', s.mp_alias, 'Es lo que verá la clienta para transferir.')}
+          ${I('s-mph', 'MercadoPago: titular (opcional)', s.mp_holder)}
+          ${I('s-yn', 'Yape: número', s.yape_number)}
+          ${I('s-yh', 'Yape: titular (opcional)', s.yape_holder)}
+        </div>
+        <label>QR de Yape (opcional)</label><div class="imgs" id="yqrimg">${s.yape_qr ? `<div><img src="${esc(s.yape_qr)}" alt=""></div>` : ''}</div><input type="file" id="s-yqr" accept="image/*">
+        <div class="sec"><h3>Tipo de cambio para pesos y soles</h3>
+          <div class="checks"><label><input type="checkbox" id="s-auto" ${s.pay_auto_rate !== false ? 'checked' : ''}> Calcular automáticamente (se actualiza una vez al día)</label></div>
+          <div class="grid2">
+            ${I('s-rars', 'Respaldo: 1 dólar = (pesos argentinos)', s.pay_rate_ars || '', 'Se usa si el servicio automático falla. Ej: 1250', 'number')}
+            ${I('s-rpen', 'Respaldo: 1 dólar = (soles)', s.pay_rate_pen || '', 'Ej: 3.7', 'number')}
+            ${I('s-mg', 'Margen sobre el tipo de cambio (%)', s.pay_margin || '', 'Opcional. Por ejemplo 3 para sumar 3% y cubrirte de variaciones.', 'number')}
+          </div></div></div>
       <div class="card"><h3>Textos</h3>${T('s-about', 'Sobre mí', s.about_text, '', 160)}
         <label>Foto de “Sobre mí”</label><div class="imgs" id="aboutimg">${s.about_image ? `<div><img src="${esc(s.about_image)}" alt=""></div>` : ''}</div><input type="file" id="s-aboutfile" accept="image/*">
         ${T('s-contact', 'Texto de contacto', s.contact_text)}${T('s-support', 'Frase sobre atención y ritmos de aprendizaje', s.support_text)}
@@ -1040,6 +1066,7 @@ window.PEQUESBO_CONFIG = {
     drawTopics();
     $('#tp-add').onclick = () => { topicsList.push({ key: '', label: '', color: '#3AAFC4' }); drawTopics(); };
     $('#bn-add').onclick = () => { banners.push({ image: '', text: '', link: '' }); drawBanners(); };
+    $('#s-yqr').onchange = async (e) => { try { toast('Subiendo…'); A.settings.yape_qr = await upload(e.target.files[0], 'pagos'); $('#yqrimg').innerHTML = `<div><img src="${esc(A.settings.yape_qr)}" alt=""></div>`; } catch (er) { fail(er); } };
     $('#s-aboutfile').onchange = async (e) => { try { toast('Subiendo…'); A.settings.about_image = await upload(e.target.files[0], 'sobre-mi'); $('#aboutimg').innerHTML = `<div><img src="${esc(A.settings.about_image)}" alt=""></div>`; } catch (er) { fail(er); } };
 
     $('#sf').onsubmit = async (e) => {
@@ -1053,6 +1080,8 @@ window.PEQUESBO_CONFIG = {
         shipping_text: v('#s-ship'), recs_text: v('#s-recs'), process_steps: split('#s-steps'),
         pay_methods: Object.fromEntries($$('[data-pm]').map((x) => [x.dataset.pm, x.checked])),
         about_text: v('#s-about'), about_image: A.settings.about_image || '', contact_text: v('#s-contact'), support_text: v('#s-support'), disclaimer: v('#s-disc'), footer_text: v('#s-foot'),
+        paypal_user: v('#s-pp').trim(), mp_alias: v('#s-mpa').trim(), mp_holder: v('#s-mph').trim(), yape_number: v('#s-yn').trim(), yape_holder: v('#s-yh').trim(), yape_qr: A.settings.yape_qr || '',
+        pay_auto_rate: $('#s-auto').checked, pay_rate_ars: Number(v('#s-rars')) || 0, pay_rate_pen: Number(v('#s-rpen')) || 0, pay_margin: Number(v('#s-mg')) || 0,
         worker_whatsapp: PB.cleanPhone(v('#s-worker')), msg_confirm: v('#s-m1'), msg_paid: v('#s-m2'), msg_sent: v('#s-m3'),
         topics: (() => { const used = new Set(); return topicsList.filter((t) => String(t.label).trim()).map((t) => { let k = t.key; if (!k) { const base = (normT(t.label).replace(/ /g, '_') || 'tema'); k = base; let n = 2; while (used.has(k) || topicsList.some((o) => o !== t && o.key === k)) k = base + '_' + n++; } used.add(k); return { key: k, label: String(t.label).trim(), color: t.color || '#3AAFC4' }; }); })(),
         banners: banners.filter((b) => b.image || b.text), pixel_tiktok: v('#s-ptt').trim(), pixel_meta: v('#s-pfb').trim()
