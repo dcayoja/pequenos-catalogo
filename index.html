@@ -282,6 +282,26 @@ button{font:inherit;color:inherit;cursor:pointer}
 .pills.topics .pill{flex:none;white-space:nowrap}
 @media (min-width:700px){.pills.topics{flex-wrap:wrap;justify-content:center;overflow:visible}}
 
+/* ventana de pago de PDFs */
+#paymodal{position:fixed;inset:0;z-index:85;display:grid;place-items:end center;background:rgba(12,38,46,.55)}
+.paybox{position:relative;background:#fff;width:min(520px,100%);max-height:92vh;overflow:auto;border-radius:26px 26px 0 0;padding:22px 20px 28px;animation:rise .22s ease-out}
+.paybox .x{position:absolute;right:12px;top:12px}
+.paybox h2{font-size:24px;padding-right:48px;margin-bottom:6px}
+.pay-price{font-family:var(--display);font-weight:600;font-size:36px;color:var(--orange-text);margin:2px 0 12px}
+.paychoices{display:grid;gap:8px;margin-bottom:16px}
+.paychoice{display:grid;grid-template-columns:1fr auto;text-align:left;gap:2px 10px;border:1.5px solid var(--line);background:#fff;border-radius:16px;padding:10px 14px}
+.paychoice b{font-family:var(--display);font-weight:500;font-size:17px}
+.paychoice span{font-family:var(--display);font-weight:600;color:var(--orange-text)}
+.paychoice small{grid-column:1/-1;color:var(--muted)}
+.paychoice[aria-checked="true"]{border-color:var(--green);background:#EFF7F6;box-shadow:0 0 0 1.5px var(--green) inset}
+.paydetail{display:grid;gap:12px}
+.paydetail p{margin:0}
+.paynum{display:flex;gap:10px;align-items:center;justify-content:space-between;background:var(--soft-bg);border-radius:14px;padding:10px 14px}
+.paynum b{font-size:18px;word-break:break-all}
+.payqr{max-width:220px;border-radius:14px;margin:0 auto}
+.paybox .fine{text-align:left}
+@media (min-width:700px){#paymodal{place-items:center;padding:24px}.paybox{border-radius:26px}}
+
 </style>
 </head>
 <body>
@@ -393,6 +413,10 @@ window.PEQUESBO_CONFIG = {
 
   const DEFAULT_SETTINGS = {
     topics: DEFAULT_TOPICS,
+    worker_whatsapp: '',
+    msg_confirm: 'Hola {nombre} 👋 Recibí tu pedido {pedido}: {libros}. Total: Bs {total}. ¿Me confirmas tus datos de envío y te paso el QR para pagar?',
+    msg_paid: 'Hola {nombre}, recibí tu pago del pedido {pedido}. ¡Gracias! Ya preparo tus libros 💛',
+    msg_sent: 'Hola {nombre}, tu pedido {pedido} ya salió. {nota} ¡Gracias por tu compra!',
     whatsapp: '59178315743',
     tiktok_url: 'https://www.tiktok.com/@aylincayoja',
     tiktok_live_url: 'https://www.tiktok.com/@aylincayoja/live',
@@ -404,7 +428,17 @@ window.PEQUESBO_CONFIG = {
       { city: 'Potosí', price: 30 }, { city: 'Tarija', price: 30 }, { city: 'Trinidad', price: 40 }, { city: 'Cobija', price: 45 }
     ],
     child_options: ['Niño', 'Niña'],
-    pay_methods: { paypal: true, mercadopago: true, yape: false, hotmart: true },
+    pay_methods: { paypal: true, mercadopago: true, yape: true, hotmart: true },
+    pay_auto_rate: true,
+    pay_rate_ars: 0,
+    pay_rate_pen: 0,
+    pay_margin: 0,
+    paypal_user: '',
+    mp_alias: '',
+    mp_holder: '',
+    yape_number: '',
+    yape_holder: '',
+    yape_qr: '',
     banners: [],
     pixel_tiktok: '',
     pixel_meta: '',
@@ -429,7 +463,8 @@ window.PEQUESBO_CONFIG = {
     old_price: Number(p.old_price) || 0,
     ages: p.ages || [], topics: p.topics || [], images: p.images || [],
     faq: Array.isArray(p.faq) ? p.faq : [],
-    includes: p.includes || ''
+    includes: p.includes || '',
+    has_gender: !!p.has_gender
   });
 
   async function load() {
@@ -490,7 +525,7 @@ window.PEQUESBO_CONFIG = {
 
   /* ---------- utilidades ---------- */
   // Secciones apagadas por ahora (se activan cambiando false por true).
-  const FEATURES = { pdf: false, envios: false, proceso: false, cupones: false };
+  const FEATURES = { pdf: true, envios: false, proceso: false, cupones: false };
   const vis = () => S.products.filter((p) => !p.hidden && (FEATURES.pdf || p.format !== 'pdf'));
   const find = (id) => S.products.find((p) => String(p.id) === String(id));
   const pct = (p) => (p.old_price > p.price && p.price > 0 ? Math.round((1 - p.price / p.old_price) * 100) : 0);
@@ -701,8 +736,8 @@ window.PEQUESBO_CONFIG = {
       <div class="ages">${ages.map((a, i) => `<a class="age age-${i + 1}" href="#/catalogo?edad=${a[0]}"><span class="n">${a[1]}<small>años</small></span></a>`).join('')}</div>
     </section>
     <div class="wrap">
-      <div class="badges"><span class="badge">Envíos a toda Bolivia</span></div>
-      <div class="ctas"><a class="btn btn-primary" href="#/catalogo?edad=all">Ver todo el catálogo</a></div>
+      <div class="badges"><span class="badge">Envíos a toda Bolivia</span>${FEATURES.pdf ? '<span class="badge">PDFs para toda Latinoamérica</span>' : ''}</div>
+      <div class="ctas"><a class="btn btn-primary" href="#/catalogo?edad=all">Ver todo el catálogo</a>${FEATURES.pdf ? '<a class="btn btn-fresh" href="#/pdf">Digitales PDF</a>' : ''}</div>
     </div>
     ${live.length ? `<section class="sec wrap"><div class="sec-h"><h2>Precio especial del live</h2>${s.tiktok_live_url ? `<a class="btn btn-sm btn-accent" href="${esc(s.tiktok_live_url)}" target="_blank" rel="noopener">Ver mis lives en TikTok</a>` : ''}</div>${trace}${rowOf(live)}</section>` : ''}
     ${feat.length ? `<section class="sec wrap"><h2>Destacados</h2>${trace}${rowOf(feat)}</section>` : ''}
@@ -733,11 +768,11 @@ window.PEQUESBO_CONFIG = {
 
   function viewPdf() {
     const list = vis().filter((p) => p.format === 'pdf');
-    const pm = S.settings.pay_methods || {};
-    const chips = [['paypal', 'PayPal'], ['mercadopago', 'MercadoPago'], ['yape', 'Yape'], ['hotmart', 'Hotmart (tarjeta)']].filter(([k]) => pm[k]).map(([, l]) => `<span class="badge">${l}</span>`).join('');
+    const st = S.settings; const pm = st.pay_methods || {}; const on = (k) => pm[k] !== false;
+    const chips = [on('hotmart') && 'Tarjeta (Hotmart)', on('paypal') && st.paypal_user && 'PayPal', on('mercadopago') && st.mp_alias && 'MercadoPago · Argentina', on('yape') && st.yape_number && 'Yape · Perú'].filter(Boolean).map((l) => `<span class="badge">${l}</span>`).join('');
     return `<div class="wrap">
-      <div class="page-h"><h1>Digitales PDF</h1><p>Materiales para imprimir en casa. Precios en dólares (USD).</p></div>
-      <div class="howto"><p><b>¿Cómo los pido?</b> Toca <b>Solicitar</b> en el PDF que quieras, paga en la página segura y recibe tu archivo de forma automática. Si algo falla, escríbenos por WhatsApp.</p>${chips ? `<div class="paychips">${chips}</div>` : ''}</div>
+      <div class="page-h"><h1>Digitales PDF</h1><p>Materiales para imprimir en casa. Entrega digital, sin costo de envío.</p></div>
+      <div class="howto"><p><b>¿Cómo los pido?</b> Toca <b>Solicitar</b> en el PDF que quieras y elige cómo pagar. Con Hotmart el PDF te llega automáticamente. Con los otros medios, envíanos el comprobante por WhatsApp y te lo mandamos.</p>${chips ? `<div class="paychips">${chips}</div>` : ''}</div>
       <div class="toolbar"></div>
       ${list.length ? `<div class="grid">${list.map(card).join('')}</div>` : '<p class="empty">Pronto habrá PDFs disponibles.</p>'}
     </div>`;
@@ -992,12 +1027,84 @@ window.PEQUESBO_CONFIG = {
   }
 
   /* ---------- PDFs y compartir ---------- */
+  /* ---------- pago de PDFs ---------- */
+  const RATES_KEY = 'pequesbo_rates_v1';
+  function cachedRates() { try { const r = JSON.parse(localStorage.getItem(RATES_KEY)); if (r && r.ars > 0 && r.pen > 0) return r; } catch (e) { /* sin caché */ } return null; }
+  async function fetchRates() {
+    if (S.settings.pay_auto_rate === false) return null;
+    const c = cachedRates(); if (c && Date.now() - c.t < 12 * 3600e3) return c;
+    try {
+      const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 4500);
+      const res = await fetch('https://open.er-api.com/v6/latest/USD', { signal: ctl.signal }); clearTimeout(to);
+      const j = await res.json();
+      if (j && j.result === 'success' && j.rates && j.rates.ARS > 0 && j.rates.PEN > 0) {
+        const r = { t: Date.now(), ars: j.rates.ARS, pen: j.rates.PEN };
+        try { localStorage.setItem(RATES_KEY, JSON.stringify(r)); } catch (e) { /* ok */ } return r;
+      }
+    } catch (e) { /* si falla, se usa el respaldo */ }
+    return c;
+  }
+  function rateFor(cur) {
+    const st = S.settings; const key = cur === 'ARS' ? 'ars' : 'pen';
+    const auto = st.pay_auto_rate !== false ? (S.rates || cachedRates()) : null;
+    if (auto && auto[key] > 0) return { rate: auto[key], auto: true };
+    const man = Number(cur === 'ARS' ? st.pay_rate_ars : st.pay_rate_pen) || 0;
+    return man > 0 ? { rate: man, auto: false } : null;
+  }
+  const payUser = (u) => String(u || '').trim().replace(/^https?:\/\/(www\.)?paypal\.me\//i, '').replace(/^@/, '').replace(/\/.*$/, '');
+  function payOptions(p) {
+    const st = S.settings; const pm = st.pay_methods || {}; const on = (k) => pm[k] !== false; const o = [];
+    const usd = 'USD ' + num(p.price); const mg = 1 + (Number(st.pay_margin) || 0) / 100;
+    if (on('hotmart') && p.pay_url) o.push({ k: 'hotmart', label: 'Tarjeta y otros medios', brand: 'Hotmart', note: 'Todos los países · entrega automática', price: usd });
+    if (on('paypal') && payUser(st.paypal_user)) o.push({ k: 'paypal', label: 'PayPal', note: 'Todo el mundo', price: usd });
+    const ra = rateFor('ARS');
+    if (on('mercadopago') && st.mp_alias && ra) { const v = Math.ceil((p.price * ra.rate * mg) / 100) * 100; o.push({ k: 'mp', label: 'MercadoPago', note: 'Solo Argentina', price: 'ARS ' + v.toLocaleString('es-AR'), auto: ra.auto }); }
+    const rp = rateFor('PEN');
+    if (on('yape') && st.yape_number && rp) { const v = Math.ceil(p.price * rp.rate * mg * 2) / 2; o.push({ k: 'yape', label: 'Yape', note: 'Solo Perú', price: 'S/ ' + (Number.isInteger(v) ? v : v.toFixed(2)), auto: rp.auto }); }
+    return o;
+  }
+  const payWa = (p, o) => waLink(`Hola Peques Bo 👋 Ya pagué el PDF "${p.name}" por ${o.label} (${o.price}). Te envío mi comprobante.`);
+  function payDetail(p, o) {
+    const st = S.settings; const wa = `<a class="btn btn-block" href="${payWa(p, o)}" target="_blank" rel="noopener" data-act="pay-wa">Ya pagué: enviar comprobante por WhatsApp</a>`;
+    const copy = (v, l) => `<div class="paynum"><b>${esc(v)}</b><button class="btn btn-sm" data-act="pay-copy" data-v="${esc(v)}">${l}</button></div>`;
+    if (o.k === 'hotmart') return `<button class="btn btn-primary btn-block" data-act="pay-go">Pagar con Hotmart</button><p class="fine">Se abre la página segura de Hotmart. Al pagar, recibes tu PDF automáticamente.</p>`;
+    if (o.k === 'paypal') return `<button class="btn btn-primary btn-block" data-act="pay-go">Pagar con PayPal</button><p class="fine">Cuando pagues, envíanos el comprobante por WhatsApp y te mandamos el PDF.</p>${wa}`;
+    if (o.k === 'mp') return `<p>Transfiere <b>${esc(o.price)}</b> al siguiente alias o CVU de MercadoPago:</p>${copy(st.mp_alias, 'Copiar')}${st.mp_holder ? `<p class="fine">Titular: ${esc(st.mp_holder)}</p>` : ''}<p class="fine">Después envíanos el comprobante por WhatsApp y te mandamos el PDF.</p>${wa}`;
+    return `<p>Yapea <b>${esc(o.price)}</b> a este número:</p>${copy(st.yape_number, 'Copiar')}${st.yape_holder ? `<p class="fine">Titular: ${esc(st.yape_holder)}</p>` : ''}${st.yape_qr ? `<img class="payqr" src="${esc(st.yape_qr)}" alt="QR de Yape">` : ''}<p class="fine">Después envíanos el comprobante por WhatsApp y te mandamos el PDF.</p>${wa}`;
+  }
+  function renderPay() {
+    if (!S.pay) return; const { p } = S.pay; const box = $('#paymodal .paybox'); if (!box) return;
+    const opts = payOptions(p); const o = opts.find((x) => x.k === S.pay.m) || opts[0]; if (o) S.pay.m = o.k;
+    const waAsk = `<a class="btn btn-primary btn-block" href="${waLink(`Hola Peques Bo 👋 Quiero el PDF: ${p.name} (${priceOf(p, p.price)})`)}" target="_blank" rel="noopener">Pedir por WhatsApp</a>`;
+    box.innerHTML = `<button class="p-btn x" data-act="pay-close" aria-label="Cerrar">×</button><h2>${esc(p.name)}</h2>`
+      + (o ? `<p class="pay-price" aria-live="polite">${esc(o.price)}</p>
+        <p class="fine" style="text-align:left;margin:0 0 8px">Elige cómo pagar:</p>
+        <div class="paychoices" role="radiogroup" aria-label="Medio de pago">${opts.map((x) => `<button class="paychoice" role="radio" aria-checked="${x.k === o.k}" data-act="pay-pick" data-m="${x.k}"><b>${esc(x.label)}${x.brand ? ' · ' + esc(x.brand) : ''}</b><span>${esc(x.price)}</span><small>${esc(x.note)}</small></button>`).join('')}</div>
+        <div class="paydetail">${payDetail(p, o)}</div>
+        ${o.auto ? '<p class="fine">Monto calculado al tipo de cambio de hoy. Tipos de cambio: <a href="https://www.exchangerate-api.com" target="_blank" rel="noopener">Rates By Exchange Rate API</a>.</p>' : ''}`
+        : S.pay.loading ? '<p class="empty" style="padding:24px 0">Calculando precios…</p>' : `<p>Escríbenos por WhatsApp y te indicamos cómo pagar.</p>${waAsk}`);
+  }
+  function closePay() { const m = $('#paymodal'); if (m) { m.hidden = true; m.querySelector('.paybox').innerHTML = ''; } S.pay = null; if ($('#modal').hidden && $('#drawer').hidden && $('#menu').hidden) document.body.classList.remove('lock'); }
+  function openPay(p) {
+    S.pay = { p, m: null, loading: true };
+    let m = $('#paymodal');
+    if (!m) { m = document.createElement('div'); m.id = 'paymodal'; m.innerHTML = '<div class="paybox" role="dialog" aria-modal="true" aria-label="Pagar PDF"></div>'; document.body.appendChild(m); m.addEventListener('click', (e) => { if (e.target === m) closePay(); }); }
+    m.hidden = false; document.body.classList.add('lock'); renderPay();
+    fetchRates().then((r) => { if (r) S.rates = r; if (S.pay && S.pay.p === p) { S.pay.loading = false; renderPay(); } });
+  }
+  function payGo() {
+    if (!S.pay) return; const { p, m } = S.pay;
+    if (m === 'hotmart') window.open(p.pay_url, '_blank', 'noopener');
+    if (m === 'paypal') window.open(`https://www.paypal.me/${encodeURIComponent(payUser(S.settings.paypal_user))}/${Number(p.price)}USD`, '_blank', 'noopener');
+  }
   function requestPdf(id) {
     const p = find(id); if (!p) return;
     track('Contact', p);
-    if (p.pay_url) { window.open(p.pay_url, '_blank', 'noopener'); return; }
-    const w = window.open(waLink(`Hola Peques Bo 👋 Quiero el PDF: ${p.name} (${p.is_free ? 'gratis' : priceOf(p, p.price)})`), '_blank');
-    if (!w) toast('Escríbenos por WhatsApp para recibir tu PDF.');
+    if (p.is_free) {
+      if (p.pay_url) { window.open(p.pay_url, '_blank', 'noopener'); return; }
+      const w = window.open(waLink(`Hola Peques Bo 👋 Quiero el PDF gratis: ${p.name}`), '_blank'); if (!w) toast('Escríbenos por WhatsApp para recibir tu PDF.'); return;
+    }
+    openPay(p);
   }
   async function share(id) {
     const p = find(id); if (!p) return;
@@ -1023,6 +1130,11 @@ window.PEQUESBO_CONFIG = {
       case 'detail': $('#searchbar').hidden = true; openDetail(id); break;
       case 'add': addToCart(id); break;
       case 'request': requestPdf(id); break;
+      case 'pay-close': closePay(); break;
+      case 'pay-pick': if (S.pay) { S.pay.m = t.dataset.m; renderPay(); } break;
+      case 'pay-go': payGo(); break;
+      case 'pay-copy': copyText(t.dataset.v).then((ok) => toast(ok ? 'Copiado' : 'No se pudo copiar')); break;
+      case 'pay-wa': track('Contact'); break;
       case 'share': share(id); break;
       case 'close-modal': closeModal(); break;
       case 'close-all': closeAll(); break;
@@ -1057,7 +1169,7 @@ window.PEQUESBO_CONFIG = {
   $('#modal').addEventListener('click', (e) => { if (e.target.id === 'modal') closeModal(); });
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
-    if (!$('#modal').hidden) closeModal(); else closeAll();
+    if ($('#paymodal') && !$('#paymodal').hidden) closePay(); else if (!$('#modal').hidden) closeModal(); else closeAll();
   });
   window.addEventListener('hashchange', route);
 
